@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en" class="transition-colors duration-300">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="{{ url_for('static', filename='images/favicon.png') }}" type="image/x-icon">
+  <title>AI Career Coach</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    };
+  </script>
+</head>
+<body class="flex flex-col min-h-screen bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-white transition-colors duration-300">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-50 bg-white dark:bg-gray-900 shadow-md border-b dark:border-gray-700 p-4 flex flex-col md:flex-row justify-between items-center transition-colors duration-300">
+    <div class="flex items-center space-x-3 mb-2 md:mb-0">
+      <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="w-10 h-10 rounded-full shadow" />
+      <div>
+        <h1 class="text-2xl font-bold leading-tight">AI Career Coach</h1>
+        <p class="text-sm text-gray-500 dark:text-gray-400">Analyze. Improve. Succeed.</p>
+      </div>
+    </div>
+    <button id="darkModeToggle" class="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded text-sm hover:shadow-sm hover:scale-105 transition">
+      <span class="text-lg">🌙</span>
+      <span>Toggle Dark Mode</span>
+    </button>
+  </header>
+
+  <!-- AI Status & Progress -->
+  <div class="flex justify-between items-center px-4 pt-2 pb-1 text-sm text-gray-700 dark:text-gray-300">
+    <div id="aiStatus">🟡 Status: <span id="statusText">Idle</span></div>
+  </div>
+  <div id="progressBarContainer" class="w-full bg-gray-200 dark:bg-gray-700 h-1">
+    <div id="progressBar" class="h-1 bg-blue-600 w-0 transition-all duration-700 ease-in-out"></div>
+  </div>
+
+  <!-- Main Content -->
+  <main class="flex-grow container mx-auto p-6">
+    <form id="analyzeForm" class="space-y-6" enctype="multipart/form-data">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- Upload Resume -->
+        <div class="bg-white dark:bg-gray-800 p-4 rounded shadow">
+          <label class="block mb-2 font-semibold">Upload Your Resume (.pdf/.docx)</label>
+          <input type="file" name="resume" class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600" required />
+        </div>
+        <!-- Paste Job Description -->
+        <div class="bg-white dark:bg-gray-800 p-4 rounded shadow">
+          <label class="block mb-2 font-semibold">Paste Job Description</label>
+          <textarea name="job_description" rows="6" required
+            class="w-full border p-2 rounded dark:bg-gray-700 dark:border-gray-600"
+            placeholder="Paste job description here..."></textarea>
+        </div>
+      </div>
+
+      <label for="model" class="block text-sm font-medium text-gray-700 dark:text-gray-200 mt-4">
+        Select NLP Model
+      </label>
+      <select name="model" id="model"
+        class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 
+               rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 
+               text-gray-900 dark:text-gray-100">
+        <option value="nltk">NLTK</option>
+        <option value="spacy">spaCy</option>
+        <option value="bert">Sentence-BERT</option>
+      </select>         
+
+      <div class="text-center">
+        <button type="submit"
+          class="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700">Analyze Resume</button>
+      </div>
+    </form>
+
+    <!-- Results Section -->
+    <section id="resultsSection" class="hidden mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <!-- Animated Skill Match Score -->
+      <div class="bg-white dark:bg-gray-800 p-4 rounded shadow text-center">
+        <h2 class="font-semibold mb-4 text-lg">Skill Match Score</h2>
+        <div class="relative w-32 h-32 mx-auto">
+          <svg class="transform -rotate-90 w-full h-full">
+            <circle cx="64" cy="64" r="56" stroke="gray" stroke-width="10" fill="none" />
+            <circle id="matchCircle" cx="64" cy="64" r="56"
+              stroke-width="10" fill="none"
+              stroke-dasharray="352" stroke-dashoffset="352"
+              stroke-linecap="round" />
+          </svg>
+          <div class="absolute inset-0 flex items-center justify-center">
+            <span id="matchScore" class="text-xl font-bold">--%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white dark:bg-gray-800 p-4 rounded shadow">
+        <h2 class="font-semibold mb-2">Missing Keywords</h2>
+        <ul id="missingKeywords" class="list-disc pl-4 text-gray-600 dark:text-gray-300">
+          <li>--</li>
+        </ul>
+      </div>
+      <div class="bg-white dark:bg-gray-800 p-4 rounded shadow">
+        <h2 class="font-semibold mb-2">Suggestions</h2>
+        <ul id="suggestions" class="list-disc pl-4 text-gray-600 dark:text-gray-300">
+          <li>--</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Semantic Score UI -->
+    <div id="semantic-score" class="mt-4 text-blue-600 font-semibold hidden">
+      Semantic Score (BERT): <span id="semantic-value">0</span>%
+    </div>
+
+    <!-- Match Score UI -->
+    <div id="match-score" class="mt-2 text-green-600 font-semibold hidden">
+       Match Score: <span id="match-value">0</span>%
+    </div>
+
+    <!-- Suggestions UI -->
+    <div id="suggestions" class="mt-4 text-sm text-gray-800 hidden">
+      <strong>Suggestions:</strong>
+      <ul id="suggestion-list" class="list-disc ml-5"></ul>
+    </div>
+
+    <!-- Footer Button -->
+    <div class="flex justify-center mt-8">
+      <button id="downloadReportBtn"
+              class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 hidden">
+        Download Report
+      </button>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="bg-white dark:bg-gray-800 text-center p-4 text-gray-500 dark:text-gray-400 border-t dark:border-gray-700 inset-x-0 bottom-0">
+    © 2025 AI Career Coach — Built for future
+    <div class="flex justify-center gap-3 mt-2">
+      <a href="https://www.linkedin.com/in/badrinatha/" target="_blank" class="hover:scale-110 transition-transform"><img src="https://img.icons8.com/?size=100&id=13930&format=png&color=000000" class="w-7 h-7" /></a>
+      <a href="https://github.com/Badrinath007" target="_blank" class="hover:scale-110 transition-transform"><img src="https://img.icons8.com/?size=100&id=3tC9EQumUAuq&format=png&color=000000" class="w-7 h-7" /></a>
+    </div>
+
+  </footer>
+
+  <!-- Script -->
+  <script>
+    const form = document.getElementById('analyzeForm');
+    const resultsSection = document.getElementById('resultsSection');
+    const matchScore = document.getElementById('matchScore');
+    const matchCircle = document.getElementById('matchCircle');
+    const missingKeywords = document.getElementById('missingKeywords');
+    const suggestionList = document.getElementById('suggestions');
+    const semanticScoreDiv = document.getElementById('semantic-score');
+    const semanticValueSpan = document.getElementById('semantic-value');
+    const downloadButton = document.getElementById('downloadReportBtn');
+    const statusText = document.getElementById('statusText');
+    const progressBar = document.getElementById('progressBar');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+
+      // Reset UI
+      resultsSection.classList.add('hidden');
+      semanticScoreDiv.classList.add('hidden');
+      downloadButton.classList.add('hidden');
+
+      // Set status
+      statusText.textContent = "Analyzing...";
+      progressBar.style.width = '100%';
+
+      const response = await fetch('/analyze', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        alert("Error analyzing resume.");
+        statusText.textContent = "❌ Failed";
+        progressBar.style.width = '0%';
+        return;
+      }
+
+      const data = await response.json();
+      const target = data.match_score;
+      const semanticScore = data.semantic_score;
+
+      // Show semantic score
+      semanticValueSpan.textContent = semanticScore;
+      semanticScoreDiv.classList.remove('hidden');
+
+      // Animate skill match score
+      let current = 0;
+      let strokeColor = target < 50 ? 'red' : target < 75 ? 'orange' : 'green';
+      matchCircle.setAttribute('stroke', strokeColor);
+      matchScore.style.color = strokeColor;
+
+      const updateScore = () => {
+        if (current <= target) {
+          matchScore.textContent = `${current}%`;
+          const offset = 352 - (352 * current / 100);
+          matchCircle.setAttribute('stroke-dashoffset', offset);
+          current++;
+          requestAnimationFrame(updateScore);
+        }
+      };
+      updateScore();
+
+      // Missing keywords
+      missingKeywords.innerHTML = '';
+      data.missing_keywords.forEach(kw => {
+        const li = document.createElement('li');
+        li.textContent = kw;
+        missingKeywords.appendChild(li);
+      });
+
+      // Suggestions
+      suggestionList.innerHTML = '';
+      data.suggestions.forEach(s => {
+        const li = document.createElement('li');
+        li.textContent = s;
+        suggestionList.appendChild(li);
+      });
+
+      resultsSection.classList.remove('hidden');
+      downloadButton.classList.remove('hidden');
+
+      // Complete status
+      statusText.textContent = "✅ Complete";
+      setTimeout(() => {
+        progressBar.style.width = '0%';
+        statusText.textContent = "🟡 Idle";
+      }, 2000);
+    });
+
+    // Dark mode toggle
+    document.getElementById('darkModeToggle').addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+    });
+
+    // Download button
+    document.getElementById('downloadReportBtn').addEventListener('click', () => {
+      fetch('/download_report')
+        .then(response => {
+          if (!response.ok) throw new Error("Download failed.");
+          return response.blob();
+        })
+        .then(blob => {
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'career_analysis_report.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+        })
+        .catch(err => alert("Error downloading: " + err.message));
+    });
+  </script>
+</body>
+</html>
