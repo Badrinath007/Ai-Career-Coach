@@ -52,7 +52,6 @@ nltk==3.8.1
 numpy==1.26.4
 packaging==24.2
 pandas==2.2.3
-pdfminer.six==20221105
 pdfplumber==0.11.6
 pillow==11.2.1
 preshed==3.0.9
